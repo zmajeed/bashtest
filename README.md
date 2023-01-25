@@ -1,2 +1,2 @@
 # bashtest
-Unit testing framework for bash shell scripts
+Run unit tests for bash shell scripts
