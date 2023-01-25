@@ -28,10 +28,14 @@
 
 function bashtest_Usage {
   echo "Usage: bashtest.sh [-t pattern] [file ...]"
-  echo "Run unit tests for bash shell scripts"
+  echo "Run unit tests for bash shell scripts, unit tests are functions with TEST_ prefix"
   echo "-h: help"
   echo "-t: only run tests that match regex pattern"
   echo "file: test files containing unit test functions, default is all *.test.sh files"
+  echo
+  echo "Examples:"
+  echo "bashtest.sh"
+  echo "bashtest.sh date*.test.sh"
 }
 
 # to clear glob pattern when there's no match
@@ -97,7 +101,7 @@ function bashtest_RunOneTestfile {
 function bashtest_CheckFilters {
   local str=$1
   local -n filters_cfref=$2
-	local n=${#filters_cfref[*]}
+  local n=${#filters_cfref[*]}
 
 # return if no filter to match against
   ((n == 0)) && return 0
@@ -111,7 +115,7 @@ function bashtest_CheckFilters {
   done
 
 # no filter for inclusion was matched
-	return 1
+  return 1
 }
 
 # run multiple test functions
@@ -125,7 +129,7 @@ function bashtest_RunAllTests {
   for testFunc in ${allTests_ratref[*]}; do
     local result
     bashtest_RunOneTest $testFunc testFilters_ratref result
-		let '++results_ratref[$result]'
+    let '++results_ratref[$result]'
     let '++results_ratref[total]'
   done
 }
@@ -152,7 +156,7 @@ function bashtest_RunOneTest {
   $testFunc
   es=$?
 
-	if((es)); then
+  if((es)); then
     echo "Fail test function $testFunc exit status $es"
     result_rotref=fail
   else
@@ -178,7 +182,7 @@ function bashtest_GetTestFuncsList {
 
     [[ $filename == $testfile ]] || continue
     testsList_gtflref+=($funcname)
-	done
+  done
 
 }
 
@@ -250,8 +254,9 @@ function bashtest_PrintTestfileResults {
   local numfail=${testfileResults_ptref[fail]}
   local numskip=${testfileResults_ptref[skip]}
 
-	echo
-	if ((numfail == 0 && numskip == 0)); then
+  echo
+
+  if ((numfail == 0 && numskip == 0)); then
     echo "Passed $numtests tests from file $testfile"
   elif ((numpass == 0 && numskip == 0)); then
     echo "Failed all $numtests tests from file $testfile"
@@ -266,12 +271,12 @@ function bashtest_PrintSummary {
   local -n results_psref=$1
   local file es
 
-	echo
+  echo
   echo "Results summary for all tests:"
 
   for file in ${!results_psref[*]}; do
     es=${results_psref[$file]}
-		((es == 0)) && status="Passed all" || status="Failed some"
+    ((es == 0)) && status="Passed all" || status="Failed some"
     echo "$status tests from file $file"
   done
 }
