@@ -4,7 +4,7 @@ Run unit tests for bash shell scripts
 
 ## Usage
 
-```bash
+```
 Usage: bashtest.sh [-t pattern] [file ...]
 Run unit tests for bash shell scripts, unit tests are functions with TEST_ prefix
 -h: help
