@@ -3,6 +3,7 @@
 # helloworld.sh
 
 function hello {
+  [[ -n $1 ]] || return 1
   echo "Hello $1!"
 }
 
@@ -12,4 +13,4 @@ function hello {
 ${testing:=false} && return
 
 # main
-hello "$1"
+hello "${1:-World}"
