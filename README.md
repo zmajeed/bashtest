@@ -53,6 +53,7 @@ The main script `helloworld.sh`
 # helloworld.sh
 
 function hello {
+  [[ -n $1 ]] || return 1
   echo "Hello $1!"
 }
 
@@ -62,7 +63,7 @@ function hello {
 ${testing:=false} && return
 
 # main
-hello "$1"
+hello "${1:-World}"
 ```
 
 The testfile `helloworld.test.sh`
@@ -75,14 +76,19 @@ The testfile `helloworld.test.sh`
 
 testing=true . helloworld.sh
 
-function TEST_hello_world {
+function TEST_hello_one_word {
   local name=World
   [[ $(hello $name) == "Hello $name!" ]]
 }
 
-function TEST_hello_le_monde {
+function TEST_hello_two_words {
   local name="Le Monde"
   [[ $(hello "$name") == "Hello $name!" ]]
+}
+
+function TEST_hello_no_words {
+  hello
+  (($? != 0))
 }
 ```
 
