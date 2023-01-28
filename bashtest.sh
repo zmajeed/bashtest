@@ -145,7 +145,7 @@ function bashtest_RunOneTest {
 
   if ! bashtest_CheckFilters $testFunc filters_rotref; then
     echo
-    echo "Skip test function $testFunc"
+    echo "Skip $testFunc"
     result_rotref=skip
     return
   fi
@@ -157,10 +157,10 @@ function bashtest_RunOneTest {
   es=$?
 
   if((es)); then
-    echo "Fail test function $testFunc exit status $es"
+    echo "Fail $testFunc exit status $es"
     result_rotref=fail
   else
-    echo "Pass test function $testFunc"
+    echo "Pass $testFunc"
     result_rotref=pass
   fi
 
