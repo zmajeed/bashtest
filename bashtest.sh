@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash +x
 
 # bashtest.sh
 
@@ -41,96 +41,121 @@ function bashtest_Usage {
 # to clear glob pattern when there's no match
 shopt -s nullglob
 
-function bashtest_RunAllTestfiles {
-  local -n testFilters_ratfref=$1
+##################################################################
 
-  local testfiles=${*:2}
-
-  local es testfile
-# net success or failure status
-  local netStatus=0
-  local -A testfileExitStatus
-
-  bashtest_PrintStartMsg testFilters_ratfref $testfiles
-
-  for testfile in $testfiles; do
-# run each testfile in new process to prevent symbol conflicts
-# allows concurrent test runs in the future
-    (bashtest_RunOneTestfile $testfile testFilters_ratfref)
-    es=$?
-    ((es != 0 && netStatus == 0)) && netStatus=1
-    testfileExitStatus[$testfile]=$es
-  done
-
-  bashtest_PrintSummary testfileExitStatus
-  return $netStatus
-}
+# these functions run in separate processes per testfile
+# their output is sent to a separate message reader pid via msgChannel file descriptor
 
 # run all matching tests in one file
+# runs in separate process because it sources testfile
+# outputs results as bash associative array keyvalue pairs
 function bashtest_RunOneTestfile {
   local testfile=$1
   local -n testFilters_rotrfef=$2
 
   local -a allTests
+  local -a includedTests
+  local -a excludedTests
 
   bashtest_LoadTests $testfile allTests
 
   local numtests=${#allTests[*]}
-  local -A results=(
+  local -A allFuncsResults=(
     [total]=0
     [pass]=0
     [fail]=0
     [skip]=0
   )
 
-  echo
-  echo -e "Run $numtests tests from testfile $testfile:"
-  bashtest_RunAllTests allTests testFilters_rotrfef results
+  local -A testFuncResults
+  local key
+  local testFunc
+  local result
 
-  bashtest_PrintTestfileResults $testfile results
+# dup stdout to fd 3 and redirect stdout to messages channel
+  exec 3>&1 >&$msgChannel
 
-# succeed if all tests skipped
-  (( ${results[skip]} == numtests )) && return 0
-
-# fail if any test faile or no test passes or no tests ran
-  return $((${results[fail]} > 0 || ${results[pass]} == 0 || ${results[total]} == 0))
-}
-
-# filters match for inclusion
-# returns 0 for successful match if there are no filters or str matches one of the filters
-function bashtest_CheckFilters {
-  local str=$1
-  local -n filters_cfref=$2
-  local n=${#filters_cfref[*]}
-
-# return if no filter to match against
-  ((n == 0)) && return 0
-
-  local i
-
-  for((i = 0; i < n; ++i)); do
-    if [[ $str =~ ${filters_cfref[i]} ]]; then
-      return 0
+# apply inclusion filters to run matching tests
+  for testFunc in ${allTests[*]}; do
+    if bashtest_CheckFilters $testFunc testFilters_rotrfef; then
+      includedTests+=($testFunc)
+      continue
     fi
+    testFuncResults[$testFunc]=skip
+    excludedTests+=($testFunc)
   done
 
-# no filter for inclusion was matched
-  return 1
+  echo
+  echo "Matched ${#includedTests[*]} out of $numtests tests to run from testfile $testfile"
+  bashtest_RunAllTests includedTests testFuncResults
+
+  for result in ${testFuncResults[*]}; do
+    let '++allFuncsResults[$result]'
+    let '++allFuncsResults[total]'
+  done
+
+# close messages channel, restore stdout from fd 3
+  exec {msgChannel}>&- >&3
+
+# @A operator prints complete definition of associative array "declare -A results=(... )"
+  local output=${allFuncsResults[*]@A}
+# strip everything from start to opening parenthesis
+  output=${output#*(}
+# strip trailing space and closing parenthesis
+  output=${output:0:-2}
+# return results for caller to capture
+  echo "$output"
+
+# succeed if all tests skipped
+  (( ${allFuncsResults[skip]} == numtests )) && return 0
+
+# fail if any test faile or no test passes or no tests ran
+  return $((${allFuncsResults[fail]} > 0 || ${allFuncsResults[pass]} == 0 || ${allFuncsResults[total]} == 0))
+}
+
+function bashtest_LoadTests {
+  local testfile=$1
+  local -n testsList_ltref=$2
+
+  local testfuncs
+
+# source testfile to pull in test functions
+  shopt -u sourcepath
+  . $testfile
+
+# get all test function names
+  testfuncs=$(declare -F | cut -d' ' -f3 | grep '^TEST_')
+
+# then get source file and line info for each test function
+  local -a funcsInfo
+  bashtest_GetTestFuncsInfo funcsInfo $testfuncs
+
+# get ordered list of test functions for the testfile
+  bashtest_GetTestFuncsList $testfile funcsInfo testsList_ltref
+}
+
+function bashtest_PrintStartMsg {
+  local -n testfilters_psmref=$1
+  local testfiles=${*:2}
+  local numtestfiles=$(($# - 1))
+
+  echo "Run tests from $numtestfiles testfiles: $testfiles"
+  if ((${#testfilters_psmref[*]} > 0)); then
+    echo "Skip tests that do not match regex patterns: ${testfilters_psmref[*]}"
+  fi
 }
 
 # run multiple test functions
 function bashtest_RunAllTests {
   local -n allTests_ratref=$1
-  local -n testFilters_ratref=$2
-  local -n results_ratref=$3
+  local -n funcResults_ratref=$2
 
   local testFunc
 
   for testFunc in ${allTests_ratref[*]}; do
     local result
-    bashtest_RunOneTest $testFunc testFilters_ratref result
-    let '++results_ratref[$result]'
-    let '++results_ratref[total]'
+    bashtest_RunOneTest $testFunc result
+    funcResults_ratref[$testFunc]=$result
   done
 }
 
@@ -138,17 +163,9 @@ function bashtest_RunAllTests {
 function bashtest_RunOneTest {
 
   local testFunc=$1
-  local -n filters_rotref=$2
-  local -n result_rotref=$3
+  local -n result_rotref=$2
 
   local es
-
-  if ! bashtest_CheckFilters $testFunc filters_rotref; then
-    echo
-    echo "Skip $testFunc"
-    result_rotref=skip
-    return
-  fi
 
   echo
   echo "Run $testFunc"
@@ -214,36 +231,95 @@ function bashtest_GetTestFuncsInfo {
   unset IFS
 }
 
-function bashtest_LoadTests {
-  local testfile=$1
-  local -n testsList_ltref=$2
+# filters match for inclusion
+# returns 0 for successful match if there are no filters or str matches one of the filters
+function bashtest_CheckFilters {
+  local str=$1
+  local -n filters_cfref=$2
+  local n=${#filters_cfref[*]}
 
-  local testfuncs
+# return if no filter to match against
+  ((n == 0)) && return 0
 
-# source testfile to pull in test functions
-  shopt -u sourcepath
-  . $testfile
+  local i
 
-# get all test function names
-  testfuncs=$(declare -F | cut -d' ' -f3 | grep '^TEST_')
+  for((i = 0; i < n; ++i)); do
+    if [[ $str =~ ${filters_cfref[i]} ]]; then
+      return 0
+    fi
+  done
 
-# then get source file and line info for each test function
-  local -a funcsInfo
-  bashtest_GetTestFuncsInfo funcsInfo $testfuncs
-
-# get ordered list of test functions for the testfile
-  bashtest_GetTestFuncsList $testfile funcsInfo testsList_ltref
+# no filter for inclusion was matched
+  return 1
 }
 
-function bashtest_PrintStartMsg {
-  local -n testfilters_psmref=$1
-  local testfiles=${*:2}
-  local numtestfiles=$(($# - 1))
+#################################################################
 
-  echo "Run tests from $numtestfiles testfiles: $testfiles"
-  if ((${#testfilters_psmref[*]} > 0)); then
-    echo "Skip tests that do not match regex patterns: ${testfilters_psmref[*]}"
-  fi
+# this function runs in separate pid to receive messages from other children of the main program
+
+function bashtest_ReadMessages {
+  local msg
+  while IFS= read -r msg; do
+    #echo -n "ReadMessages: "
+    echo "$msg"
+  done
+
+}
+
+#################################################################
+
+# these functions run in main process
+
+# start messages processor that listens to msgChannel
+function bashtest_InitMessages {
+  exec {msgChannel}> >(bashtest_ReadMessages)
+}
+
+function bashtest_RunAllTestfiles {
+  local -n testFilters_ratfref=$1
+
+  local testfiles=${*:2}
+
+  local es testfile
+# net success or failure status
+  local netStatus=0
+# status per testfile
+  local -A testfileStatus
+# cumulative results
+  local -A allFilesResults=(
+    [total]=0
+    [pass]=0
+    [fail]=0
+    [skip]=0
+  )
+
+  local key
+
+  bashtest_PrintStartMsg testFilters_ratfref $testfiles
+
+  for testfile in $testfiles; do
+# run each testfile in new process to prevent symbol conflicts
+# allows concurrent test runs in the future
+# capture results for tests in testfile printed to stdout
+    local output="$(bashtest_RunOneTestfile $testfile testFilters_ratfref)"
+    es=$?
+    ((es != 0 && netStatus == 0)) && netStatus=1
+    testfileStatus[$testfile]=$es
+
+# create dynamic associative array from testfile results
+# note quotes are required around parentheses
+    local -A testfileResults="($output)"
+
+# update cumulative results
+    for key in ${!allFilesResults[*]}; do
+      let 'allFilesResults[$key] += testfileResults[$key]'
+    done
+
+    bashtest_PrintTestfileResults $testfile testfileResults
+  done
+
+  bashtest_PrintSummary testfileStatus
+  return $netStatus
 }
 
 function bashtest_PrintTestfileResults {
@@ -261,10 +337,10 @@ function bashtest_PrintTestfileResults {
   elif ((numpass == 0 && numskip == 0)); then
     echo "Failed all $numtests tests from file $testfile"
   else
-    echo "Failed $numfail tests out of $numtests tests from file $testfile"
-    echo "Passed $numpass tests out of $numtests tests from file $testfile"
+    echo "Failed $numfail out of $numtests tests from file $testfile"
+    echo "Passed $numpass out of $numtests tests from file $testfile"
   fi
-  echo "Skipped $numskip tests out of $numtests tests from file $testfile"
+  echo "Skipped $numskip out of $numtests tests from file $testfile"
 }
 
 function bashtest_PrintSummary {
@@ -301,9 +377,15 @@ function bashtest_Main {
 
   (($# > 0)) && testfiles=$* || testfiles=(*.test.sh)
 
+# file descriptor of channel for messages from child pids
+  local msgChannel
+
+  bashtest_InitMessages
   bashtest_RunAllTestfiles testFilterPatterns ${testfiles[*]}
 
 }
+
+##################################################################
 
 bashtest_Main $*
 

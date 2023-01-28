@@ -18,7 +18,7 @@ bashtest.sh helloworld.test.sh
 
 **`bashtest`** is a simple test runner for unit testing bash scripts. Unit tests are bash functions that start with `TEST_`, e.g. `TEST_hello_world`.
 
-**`bashtest`** loads these functions from files ending in `.test.sh` in the current directpry by default. It runs all the `TEST_*` functions and reports their results.
+**`bashtest`** loads these functions from files ending in `.test.sh` in the current directory by default. It runs all the `TEST_*` functions and reports their results.
 
 It prints whether each test passed or failed or was skipped. A test passes if its exit status is 0, it fails otherwise.
 
@@ -97,23 +97,51 @@ Hello World!
 Running **`bashtest`** runs the unit tests from `helloworld.test.sh` and does not run the main part of `helloworld.sh`
 
 ```
-$ ./bashtest.sh
+$ bashtest.sh
 
 Run tests from 1 testfiles: helloworld.test.sh
 
-Run 2 tests from testfile helloworld.test.sh:
+Matched 3 out of 3 tests to run from testfile helloworld.test.sh:
 
-Run TEST_hello_world
-Pass TEST_hello_world
+Run TEST_hello_one_word
+Pass TEST_hello_one_word
 
-Run TEST_hello_le_monde
-Pass TEST_hello_le_monde
+Run TEST_hello_two_words
+Pass TEST_hello_two_words
 
-Passed 2 tests from file helloworld.test.sh
-Skipped 0 tests out of 2 tests from file helloworld.test.sh
+Run TEST_hello_no_words
+Pass TEST_hello_no_words
+
+Passed 3 tests from file helloworld.test.sh
+Skipped 0 out of 3 tests from file helloworld.test.sh
 
 Results summary for all tests:
 Passed all tests from file helloworld.test.sh
-
 ```
 
+## Filtering tests
+
+A regular expression may be given with the `-t` option to only run tests that match
+
+
+```
+$ bashtest.sh -t "one|two"
+
+Run tests from 1 testfiles: helloworld.test.sh
+Skip tests that do not match regex patterns: one|two
+
+Matched 2 out of 3 tests to run from testfile helloworld.test.sh
+
+Run TEST_hello_one_word
+Pass TEST_hello_one_word
+
+Run TEST_hello_two_words
+Pass TEST_hello_two_words
+
+Failed 0 out of 3 tests from file helloworld.test.sh
+Passed 2 out of 3 tests from file helloworld.test.sh
+Skipped 1 out of 3 tests from file helloworld.test.sh
+
+Results summary for all tests:
+Passed all tests from file helloworld.test.sh
+```

@@ -5,13 +5,17 @@
 
 testing=true . helloworld.sh
 
-function TEST_hello_world {
+function TEST_hello_one_word {
   local name=World
   [[ $(hello $name) == "Hello $name!" ]]
 }
 
-function TEST_hello_le_monde {
+function TEST_hello_two_words {
   local name="Le Monde"
   [[ $(hello "$name") == "Hello $name!" ]]
 }
 
+function TEST_hello_no_words {
+  hello
+  (($? != 0))
+}
