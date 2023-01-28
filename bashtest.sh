@@ -87,6 +87,7 @@ function bashtest_RunOneTestfile {
 
   echo
   echo "Matched ${#includedTests[*]} out of $numtests tests to run from testfile $testfile"
+
   bashtest_RunAllTests includedTests testFuncResults
 
   for result in ${testFuncResults[*]}; do
@@ -132,17 +133,6 @@ function bashtest_LoadTests {
 
 # get ordered list of test functions for the testfile
   bashtest_GetTestFuncsList $testfile funcsInfo testsList_ltref
-}
-
-function bashtest_PrintStartMsg {
-  local -n testfilters_psmref=$1
-  local testfiles=${*:2}
-  local numtestfiles=$(($# - 1))
-
-  echo "Run tests from $numtestfiles testfiles: $testfiles"
-  if ((${#testfilters_psmref[*]} > 0)); then
-    echo "Skip tests that do not match regex patterns: ${testfilters_psmref[*]}"
-  fi
 }
 
 # run multiple test functions
@@ -260,7 +250,6 @@ function bashtest_CheckFilters {
 function bashtest_ReadMessages {
   local msg
   while IFS= read -r msg; do
-    #echo -n "ReadMessages: "
     echo "$msg"
   done
 
@@ -355,6 +344,17 @@ function bashtest_PrintSummary {
     ((es == 0)) && status="Passed all" || status="Failed some"
     echo "$status tests from file $file"
   done
+}
+
+function bashtest_PrintStartMsg {
+  local -n testfilters_psmref=$1
+  local testfiles=${*:2}
+  local numtestfiles=$(($# - 1))
+
+  echo "Run tests from $numtestfiles testfiles: $testfiles"
+  if ((${#testfilters_psmref[*]} > 0)); then
+    echo "Skip tests that do not match regex patterns: ${testfilters_psmref[*]}"
+  fi
 }
 
 function bashtest_Main {
