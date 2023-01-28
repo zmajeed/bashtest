@@ -104,10 +104,10 @@ Run tests from 1 testfiles: helloworld.test.sh
 Run 2 tests from testfile helloworld.test.sh:
 
 Run TEST_hello_world
-Pass test function TEST_hello_world
+Pass TEST_hello_world
 
 Run TEST_hello_le_monde
-Pass test function TEST_hello_le_monde
+Pass TEST_hello_le_monde
 
 Passed 2 tests from file helloworld.test.sh
 Skipped 0 tests out of 2 tests from file helloworld.test.sh
