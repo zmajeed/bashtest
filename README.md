@@ -95,9 +95,13 @@ function TEST_hello_no_words {
 Running `helloworld.sh` directly produces normal output
 
 ```
-$ ./helloworld.sh World
+$ ./helloworld.sh
 
 Hello World!
+
+$ ./helloworld.sh "Sam Lowry"
+
+Hello Sam Lowry!
 ```
 
 Running **`bashtest`** runs the unit tests from `helloworld.test.sh` and does not run the main part of `helloworld.sh`
